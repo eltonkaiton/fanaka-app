@@ -5,7 +5,6 @@ import Icon from "react-native-vector-icons/Ionicons";
 export default function PlayManagerHomeScreen({ navigation }) {
   return (
     <View style={styles.container}>
-
       <Text style={styles.title}>Play Manager Dashboard</Text>
 
       <TouchableOpacity
@@ -26,7 +25,7 @@ export default function PlayManagerHomeScreen({ navigation }) {
 
       <TouchableOpacity
         style={styles.button}
-        onPress={() => navigation.navigate("BookingsForMyPlays")}
+        onPress={() => navigation.navigate("ManagerBookings")}
       >
         <Icon name="receipt-outline" size={22} color="#fff" />
         <Text style={styles.buttonText}>View Bookings</Text>
@@ -39,7 +38,6 @@ export default function PlayManagerHomeScreen({ navigation }) {
         <Icon name="log-out-outline" size={22} color="#fff" />
         <Text style={styles.buttonText}>Logout</Text>
       </TouchableOpacity>
-
     </View>
   );
 }
@@ -49,23 +47,31 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: "#f8f9fa",
+    justifyContent: "center",
   },
   title: {
     fontSize: 26,
     fontWeight: "bold",
     marginBottom: 30,
+    textAlign: "center",
   },
   button: {
     flexDirection: "row",
     alignItems: "center",
     padding: 15,
     borderRadius: 10,
-    backgroundColor: "#222",
+    backgroundColor: "#6200EE",
     marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   buttonText: {
     color: "#fff",
     fontSize: 18,
     marginLeft: 10,
+    fontWeight: "500",
   },
 });

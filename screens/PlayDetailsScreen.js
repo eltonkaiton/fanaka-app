@@ -1,58 +1,270 @@
-// screens/PlayDetailsScreen.js
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  ScrollView,
-  Button,
-  StyleSheet,
-  Alert,
-  ActivityIndicator
+import { 
+  View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, Alert, 
+  ActivityIndicator, Modal, TextInput, FlatList 
 } from 'react-native';
 import axios from 'axios';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PlayDetailsScreen = ({ route, navigation }) => {
   const { playId } = route.params;
+  
+  // State variables
   const [play, setPlay] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [bookingModal, setBookingModal] = useState(false);
+  const [paymentModal, setPaymentModal] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  
+  const [userData, setUserData] = useState(null);
+  const [selectedTicketType, setSelectedTicketType] = useState('regular');
+  const [quantity, setQuantity] = useState(1);
+  const [totalPrice, setTotalPrice] = useState(0);
+  const [showSeatDisplay, setShowSeatDisplay] = useState(false);
+  
+  const [availableSeats, setAvailableSeats] = useState({ 
+    regular: [], 
+    vip: [], 
+    vvip: [] 
+  });
+  const [allocatedSeats, setAllocatedSeats] = useState([]);
+  
+  const [paymentMethod, setPaymentMethod] = useState('mpesa');
+  const [paymentCode, setPaymentCode] = useState('');
+  
+  const API_BASE_URL = 'http://192.168.0.103:5000';
 
-  // Update this with your actual server IP
-  const API_BASE_URL = 'http://192.168.100.13:5000';
-
+  // Fetch play details on component mount
   useEffect(() => {
-    const fetchPlay = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(`${API_BASE_URL}/api/plays/${playId}`);
-        setPlay(response.data);
-        setError(null);
-      } catch (error) {
-        console.error('Error fetching play details:', error);
-        setError('Failed to load play details');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchPlay();
+    fetchUserData();
   }, [playId]);
 
-  const handleBookTicket = async () => {
+  // Fetch play details from API
+  const fetchPlay = async () => {
     try {
-      // You can implement actual booking API call here
-      Alert.alert('Ticket Booking', 'Ticket booked successfully!');
-      // Example API call:
-      // await axios.post(`${API_BASE_URL}/api/bookings`, {
-      //   playId: playId,
-      //   userId: 'user_id_here',
-      //   date: new Date().toISOString()
-      // });
+      setLoading(true);
+      const response = await axios.get(`${API_BASE_URL}/api/plays/${playId}`);
+      setPlay(response.data);
+      
+      // Generate mock seat data
+      generateSeatData();
     } catch (error) {
-      Alert.alert('Error', 'Failed to book ticket');
+      Alert.alert('Error', 'Failed to load play details');
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Generate mock seat availability data
+  const generateSeatData = () => {
+    const seatData = { regular: [], vip: [], vvip: [] };
+    
+    // Regular seats (20 seats)
+    for (let i = 1; i <= 20; i++) {
+      seatData.regular.push({
+        id: i,
+        number: `A${i}`,
+        type: 'regular',
+        available: Math.random() > 0.1
+      });
+    }
+    
+    // VIP seats (20 seats)
+    for (let i = 1; i <= 20; i++) {
+      seatData.vip.push({
+        id: i + 20,
+        number: `B${i}`,
+        type: 'vip',
+        available: Math.random() > 0.2
+      });
+    }
+    
+    // VVIP seats (10 seats)
+    for (let i = 1; i <= 10; i++) {
+      seatData.vvip.push({
+        id: i + 40,
+        number: `C${i}`,
+        type: 'vvip',
+        available: Math.random() > 0.3
+      });
+    }
+    
+    setAvailableSeats(seatData);
+  };
+
+  // Fetch user data from AsyncStorage
+  const fetchUserData = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        const response = await axios.get(`${API_BASE_URL}/api/users/profile`, {
+          headers: { Authorization: `Bearer ${token.trim()}` }
+        });
+        setUserData(response.data);
+      }
+    } catch (error) {
+      if (error.response?.status === 401) {
+        await AsyncStorage.removeItem('token');
+      }
+      setUserData(null);
+    }
+  };
+
+  // Update total price and allocate seats when dependencies change
+  useEffect(() => {
+    if (play) {
+      const priceMap = {
+        'regular': play.regularPrice || 0,
+        'vip': play.vipPrice || 0,
+        'vvip': play.vvipPrice || 0
+      };
+      setTotalPrice(priceMap[selectedTicketType] * quantity);
+      allocateSeatsAutomatically();
+    }
+  }, [selectedTicketType, quantity, play, availableSeats]);
+
+  // Automatically allocate seats based on selected ticket type and quantity
+  const allocateSeatsAutomatically = () => {
+    const seatType = selectedTicketType;
+    const seatsToAllocate = quantity;
+    const availableSeatsForType = availableSeats[seatType] || [];
+    const freeSeats = availableSeatsForType.filter(seat => seat.available);
+    
+    const allocated = freeSeats
+      .slice(0, seatsToAllocate)
+      .map(seat => ({
+        id: seat.id,
+        number: seat.number,
+        type: seat.type
+      }));
+    
+    setAllocatedSeats(allocated);
+  };
+
+  // Handle booking ticket button press
+  const handleBookTicket = () => {
+    if (!userData) {
+      Alert.alert('Login Required', 'Please login to book tickets', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Login', onPress: () => navigation.navigate('Login') }
+      ]);
+      return;
+    }
+    
+    const seatType = selectedTicketType;
+    const seatsNeeded = quantity;
+    const availableSeatsForType = availableSeats[seatType] || [];
+    const freeSeats = availableSeatsForType.filter(seat => seat.available);
+    
+    if (freeSeats.length < seatsNeeded) {
+      Alert.alert('Not Enough Seats', 
+        `Only ${freeSeats.length} ${seatType.toUpperCase()} seats available.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    setBookingModal(true);
+  };
+
+  // Confirm booking and proceed to payment
+  const handleConfirmBooking = () => {
+    if (allocatedSeats.length !== quantity) {
+      Alert.alert('Seat Allocation Error', 'Could not allocate enough seats. Please try again.');
+      allocateSeatsAutomatically();
+      return;
+    }
+    
+    setPaymentModal(true);
+  };
+
+  // Process payment and create booking
+  const processPayment = async () => {
+    if (!paymentCode.trim()) {
+      Alert.alert('Payment Required', 'Please enter your payment code');
+      return;
+    }
+    
+    if (allocatedSeats.length === 0) {
+      Alert.alert('No Seats Allocated', 'Please try booking again.');
+      return;
+    }
+    
+    setProcessingPayment(true);
+    try {
+      const bookingData = {
+        playId: playId,
+        playTitle: play.title,
+        ticketType: selectedTicketType,
+        quantity: quantity,
+        allocatedSeats: allocatedSeats.map(s => s.number), // Send only seat numbers
+        totalPrice: totalPrice,
+        paymentMethod: paymentMethod,
+        paymentCode: paymentCode,
+        bookingDate: new Date().toISOString(),
+        playDate: play.date,
+        customerName: userData?.fullName || 'Customer',
+        customerEmail: userData?.email || 'customer@example.com',
+        customerPhone: userData?.phone || ''
+      };
+      
+      const response = await axios.post(`${API_BASE_URL}/api/bookings`, bookingData);
+      
+      if (response.data.success) {
+        Alert.alert(
+          'Booking Successful!', 
+          `Your booking for "${play.title}" has been confirmed!\n\n` +
+          `• Tickets: ${quantity} × ${selectedTicketType.toUpperCase()}\n` +
+          `• Seats: ${allocatedSeats.map(s => s.number).join(', ')}\n` +
+          `• Total: KES ${totalPrice}\n` +
+          `• Payment: ${paymentMethod.toUpperCase()}\n` +
+          `• Booking Reference: ${response.data.booking?.bookingReference || 'N/A'}`,
+          [{
+            text: 'View My Tickets', 
+            onPress: () => {
+              resetBookingState();
+              navigation.navigate('MyTickets');
+            }
+          }, {
+            text: 'OK',
+            onPress: () => {
+              resetBookingState();
+            }
+          }]
+        );
+      }
+    } catch (error) {
+      let errorMessage = 'Payment failed. Please try again.';
+      
+      if (error.response?.data?.msg) {
+        errorMessage = error.response.data.msg;
+      } else if (error.response?.data?.errors) {
+        errorMessage = error.response.data.errors.map(err => err.msg).join(', ');
+      } else if (error.message === 'Network Error') {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      Alert.alert('Payment Failed', errorMessage);
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  // Reset booking state to default values
+  const resetBookingState = () => {
+    setSelectedTicketType('regular');
+    setQuantity(1);
+    setAllocatedSeats([]);
+    setShowSeatDisplay(false);
+    setPaymentMethod('mpesa');
+    setPaymentCode('');
+    setBookingModal(false);
+    setPaymentModal(false);
+  };
+
+  // Format date to readable string
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -65,278 +277,1290 @@ const PlayDetailsScreen = ({ route, navigation }) => {
     });
   };
 
-  if (loading) {
+  // Get ticket price based on type
+  const getTicketPrice = (type) => {
+    if (!play) return 0;
+    switch (type) {
+      case 'regular': return play.regularPrice || 0;
+      case 'vip': return play.vipPrice || 0;
+      case 'vvip': return play.vvipPrice || 0;
+      default: return 0;
+    }
+  };
+
+  // Render seat item for FlatList
+  const renderSeat = ({ item }) => {
+    const isAllocated = allocatedSeats.some(seat => seat.id === item.id);
+    const isUnavailable = !item.available;
+    
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading play details...</Text>
+      <View style={[
+        styles.seat, 
+        item.type === 'vip' && styles.seatVip, 
+        item.type === 'vvip' && styles.seatVvip,
+        isAllocated && styles.seatAllocated,
+        isUnavailable && styles.seatUnavailable
+      ]}>
+        <Text style={[
+          styles.seatText, 
+          isAllocated && styles.seatTextAllocated,
+          isUnavailable && styles.seatTextUnavailable
+        ]}>
+          {item.number}
+        </Text>
+        {item.type !== 'regular' && (
+          <Ionicons 
+            name={item.type === 'vip' ? 'star' : 'diamond'} 
+            size={10} 
+            color={isAllocated ? '#fff' : isUnavailable ? '#999' : '#666'} 
+          />
+        )}
+        {isAllocated && (
+          <Ionicons name="checkmark-circle" size={12} color="#fff" style={styles.seatCheckmark} />
+        )}
       </View>
     );
-  }
+  };
 
-  if (error) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Button title="Retry" onPress={() => navigation.goBack()} />
-      </View>
-    );
-  }
+  // Render seat legend
+  const renderSeatLegend = () => (
+    <View style={styles.seatLegend}>
+      <View style={styles.legendItem}><View style={[styles.legendColor, styles.legendRegular]} /><Text style={styles.legendText}>Regular</Text></View>
+      <View style={styles.legendItem}><View style={[styles.legendColor, styles.legendVip]} /><Text style={styles.legendText}>VIP</Text></View>
+      <View style={styles.legendItem}><View style={[styles.legendColor, styles.legendVvip]} /><Text style={styles.legendText}>VVIP</Text></View>
+      <View style={styles.legendItem}><View style={[styles.legendColor, styles.legendAllocated]} /><Text style={styles.legendText}>Your Seats</Text></View>
+      <View style={styles.legendItem}><View style={[styles.legendColor, styles.legendUnavailable]} /><Text style={styles.legendText}>Taken</Text></View>
+    </View>
+  );
 
-  if (!play) {
-    return (
-      <View style={styles.centered}>
-        <Text>No play data available</Text>
-        <Button title="Go Back" onPress={() => navigation.goBack()} />
-      </View>
-    );
-  }
+  // Loading state
+  if (loading) return (
+    <View style={styles.centered}>
+      <ActivityIndicator size="large" color="#6200EE" />
+      <Text style={styles.loadingText}>Loading play details...</Text>
+    </View>
+  );
+  
+  // No play data state
+  if (!play) return (
+    <View style={styles.centered}>
+      <Ionicons name="theater-outline" size={60} color="#666" />
+      <Text style={styles.noDataText}>Play not found</Text>
+      <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
+        <Text style={styles.retryButtonText}>Go Back</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
-  // Construct full image URL
-  const imageUrl = play.image
-    ? `${API_BASE_URL}${play.image}`
-    : null;
+  const imageUrl = play.image ? `${API_BASE_URL}${play.image}` : null;
+  const isPastEvent = new Date(play.date) <= new Date();
+  const allSeats = [...availableSeats.regular, ...availableSeats.vip, ...availableSeats.vvip];
 
   return (
     <ScrollView style={styles.container}>
-      {/* Image Section */}
+      {/* Play Image */}
       {imageUrl ? (
         <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: imageUrl }}
-            style={styles.image}
-            resizeMode="cover"
-          />
+          <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
+          {isPastEvent && (
+            <View style={styles.pastEventOverlay}>
+              <Text style={styles.pastEventText}>PAST EVENT</Text>
+            </View>
+          )}
         </View>
       ) : (
         <View style={[styles.imageContainer, styles.noImage]}>
+          <Ionicons name="theater" size={60} color="#666" />
           <Text style={styles.noImageText}>No Image Available</Text>
+          {isPastEvent && (
+            <View style={styles.pastEventOverlay}>
+              <Text style={styles.pastEventText}>PAST EVENT</Text>
+            </View>
+          )}
         </View>
       )}
 
-      {/* Play Details Section */}
+      {/* Play Details */}
       <View style={styles.detailsContainer}>
         <Text style={styles.title}>{play.title}</Text>
         
-        <View style={styles.detailRow}>
-          <Text style={styles.label}>Date & Time:</Text>
-          <Text style={styles.value}>{formatDate(play.date)}</Text>
+        {/* Info Bar */}
+        <View style={styles.infoBar}>
+          <View style={styles.infoItem}>
+            <Ionicons name="calendar-outline" size={20} color="#6200EE" />
+            <Text style={styles.infoItemText}>{formatDate(play.date)}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Ionicons name="location-outline" size={20} color="#6200EE" />
+            <Text style={styles.infoItemText}>{play.venue || 'Venue not specified'}</Text>
+          </View>
         </View>
-        
-        <View style={styles.detailRow}>
-          <Text style={styles.label}>Venue:</Text>
-          <Text style={styles.value}>{play.venue || 'Not specified'}</Text>
+
+        {/* Ticket Prices */}
+        <View style={styles.pricesSection}>
+          <Text style={styles.sectionTitle}>Ticket Prices</Text>
+          <View style={styles.pricesGrid}>
+            <View style={styles.priceCard}>
+              <Text style={styles.priceType}>Regular</Text>
+              <Text style={styles.priceValue}>KES {play.regularPrice || 0}</Text>
+              <Text style={styles.priceDesc}>Standard seating</Text>
+            </View>
+            <View style={[styles.priceCard, styles.priceCardVip]}>
+              <Text style={styles.priceType}>VIP</Text>
+              <Text style={styles.priceValue}>KES {play.vipPrice || 0}</Text>
+              <Text style={styles.priceDesc}>Premium seating</Text>
+            </View>
+            <View style={[styles.priceCard, styles.priceCardVvip]}>
+              <Text style={styles.priceType}>VVIP</Text>
+              <Text style={styles.priceValue}>KES {play.vvipPrice || 0}</Text>
+              <Text style={styles.priceDesc}>Front row seating</Text>
+            </View>
+          </View>
         </View>
-        
-        <View style={styles.detailRow}>
-          <Text style={styles.label}>Price:</Text>
-          <Text style={[styles.value, styles.price]}>
-            KES {play.price || '0'}
-          </Text>
-        </View>
-        
+
+        {/* Play Description */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Description</Text>
+          <Text style={styles.sectionTitle}>About the Play</Text>
           <Text style={styles.description}>{play.description}</Text>
         </View>
 
-        {/* Actors Section */}
+        {/* Cast Information */}
         {play.actors && play.actors.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Cast</Text>
-            {play.actors.map((actor, index) => (
-              <View key={index} style={styles.actorItem}>
-                <Text style={styles.actorName}>{actor.name || 'Actor'}</Text>
-                {actor.role && <Text style={styles.actorRole}>as {actor.role}</Text>}
-              </View>
-            ))}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.castScroll}>
+              {play.actors.map((actor, index) => (
+                <View key={index} style={styles.actorCard}>
+                  <View style={styles.actorAvatar}>
+                    <Ionicons name="person-circle" size={50} color="#6200EE" />
+                  </View>
+                  <Text style={styles.actorName}>{actor.actor?.fullName || actor.actor?.name || 'Actor'}</Text>
+                  <Text style={styles.actorRole}>{actor.role || 'Role'}</Text>
+                </View>
+              ))}
+            </ScrollView>
           </View>
         )}
 
-        {/* Additional Information */}
+        {/* Additional Details */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Additional Information</Text>
-          <View style={styles.infoGrid}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Created</Text>
-              <Text style={styles.infoValue}>
-                {new Date(play.createdAt).toLocaleDateString()}
-              </Text>
+          <Text style={styles.sectionTitle}>Details</Text>
+          <View style={styles.detailsGrid}>
+            <View style={styles.detailCard}>
+              <Ionicons name="time-outline" size={24} color="#6200EE" />
+              <Text style={styles.detailCardTitle}>Duration</Text>
+              <Text style={styles.detailCardValue}>2-3 hours</Text>
             </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Status</Text>
-              <Text style={[styles.infoValue, styles.statusActive]}>
-                {new Date(play.date) > new Date() ? 'Upcoming' : 'Past Event'}
+            <View style={styles.detailCard}>
+              <Ionicons name="people-outline" size={24} color="#6200EE" />
+              <Text style={styles.detailCardTitle}>Rating</Text>
+              <Text style={styles.detailCardValue}>PG-13</Text>
+            </View>
+            <View style={styles.detailCard}>
+              <Ionicons name="information-circle-outline" size={24} color="#6200EE" />
+              <Text style={styles.detailCardTitle}>Status</Text>
+              <Text style={[styles.detailCardValue, isPastEvent ? styles.statusPast : styles.statusUpcoming]}>
+                {isPastEvent ? 'Past Event' : 'Upcoming Event'}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Booking Button */}
+        {/* Book Button */}
         <View style={styles.bookingContainer}>
-          <Button
-            title="Book Ticket"
-            onPress={handleBookTicket}
-            color="#4CAF50"
-            disabled={new Date(play.date) <= new Date()}
-          />
-          {new Date(play.date) <= new Date() && (
-            <Text style={styles.bookingNote}>
-              Booking unavailable for past events
+          <TouchableOpacity 
+            style={[styles.bookButton, isPastEvent && styles.bookButtonDisabled]}
+            onPress={handleBookTicket} 
+            disabled={isPastEvent}
+          >
+            <Ionicons name="ticket" size={24} color="#fff" />
+            <Text style={styles.bookButtonText}>
+              {isPastEvent ? 'Event Ended' : 'Book Tickets'}
             </Text>
+          </TouchableOpacity>
+          {isPastEvent && (
+            <Text style={styles.bookingNote}>This event has already taken place</Text>
           )}
         </View>
       </View>
+
+      {/* Booking Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={bookingModal}
+        onRequestClose={() => setBookingModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Book Tickets</Text>
+              <TouchableOpacity onPress={() => setBookingModal(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.playTitleModal}>{play.title}</Text>
+
+              {/* User Information */}
+              <View style={styles.userInfo}>
+                <View style={styles.userInfoItem}>
+                  <Ionicons name="person" size={16} color="#666" />
+                  <Text style={styles.userInfoText}>{userData?.fullName || 'User'}</Text>
+                </View>
+                <View style={styles.userInfoItem}>
+                  <Ionicons name="mail" size={16} color="#666" />
+                  <Text style={styles.userInfoText}>{userData?.email || 'No email'}</Text>
+                </View>
+                <View style={styles.userInfoItem}>
+                  <Ionicons name="call" size={16} color="#666" />
+                  <Text style={styles.userInfoText}>{userData?.phone || 'No phone'}</Text>
+                </View>
+              </View>
+
+              {/* Ticket Type Selection */}
+              <View style={styles.ticketTypeButtons}>
+                {['regular', 'vip', 'vvip'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.ticketTypeButton,
+                      selectedTicketType === type && styles.ticketTypeButtonActive
+                    ]}
+                    onPress={() => setSelectedTicketType(type)}
+                  >
+                    <Text style={[
+                      styles.ticketTypeButtonText,
+                      selectedTicketType === type && styles.ticketTypeButtonTextActive
+                    ]}>
+                      {type.toUpperCase()}
+                    </Text>
+                    <Text style={styles.ticketTypePrice}>
+                      KES {getTicketPrice(type)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Quantity Selection */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Quantity</Text>
+                <View style={styles.quantitySelector}>
+                  <TouchableOpacity
+                    style={styles.quantityButton}
+                    onPress={() => setQuantity(Math.max(1, quantity - 1))}
+                  >
+                    <Ionicons name="remove" size={24} color="#6200EE" />
+                  </TouchableOpacity>
+                  <Text style={styles.quantityText}>{quantity}</Text>
+                  <TouchableOpacity
+                    style={styles.quantityButton}
+                    onPress={() => setQuantity(quantity + 1)}
+                  >
+                    <Ionicons name="add" size={24} color="#6200EE" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.quantityHelper}>
+                  {allocatedSeats.length} seat(s) allocated automatically
+                </Text>
+              </View>
+
+              {/* Seat Map Toggle */}
+              <TouchableOpacity
+                style={styles.seatToggle}
+                onPress={() => setShowSeatDisplay(!showSeatDisplay)}
+              >
+                <Text style={styles.seatToggleText}>
+                  {showSeatDisplay ? 'Hide Seat Map' : 'View Seat Map'}
+                </Text>
+                <Ionicons
+                  name={showSeatDisplay ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color="#6200EE"
+                />
+              </TouchableOpacity>
+
+              {/* Seat Map Display */}
+              {showSeatDisplay && (
+                <View style={styles.seatDisplay}>
+                  <Text style={styles.seatDisplayTitle}>Seat Map</Text>
+                  {renderSeatLegend()}
+                  <View style={styles.seatAllocationInfo}>
+                    <Text style={styles.seatAllocationText}>
+                      Your allocated seats ({selectedTicketType.toUpperCase()} section):
+                    </Text>
+                    <Text style={styles.allocatedSeatsText}>
+                      {allocatedSeats.length > 0
+                        ? allocatedSeats.map(s => s.number).join(', ')
+                        : 'No seats allocated yet'}
+                    </Text>
+                  </View>
+                  <FlatList
+                    data={allSeats}
+                    renderItem={renderSeat}
+                    keyExtractor={item => item.id.toString()}
+                    numColumns={5}
+                    contentContainerStyle={styles.seatsGrid}
+                    scrollEnabled={false}
+                  />
+                  <View style={styles.stageIndicator}>
+                    <Text style={styles.stageText}>🎭 STAGE 🎭</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Price Summary */}
+              <View style={styles.priceSummary}>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Ticket Price</Text>
+                  <Text style={styles.priceValue}>KES {getTicketPrice(selectedTicketType)}</Text>
+                </View>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Quantity</Text>
+                  <Text style={styles.priceValue}>× {quantity}</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={[styles.priceRow, styles.totalRow]}>
+                  <Text style={styles.totalLabel}>Total Amount</Text>
+                  <Text style={styles.totalValue}>KES {totalPrice}</Text>
+                </View>
+              </View>
+            </ScrollView>
+
+            {/* Modal Footer */}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setBookingModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, allocatedSeats.length === 0 && styles.confirmButtonDisabled]}
+                onPress={handleConfirmBooking}
+                disabled={allocatedSeats.length === 0}
+              >
+                <Ionicons name="arrow-forward" size={20} color="#fff" />
+                <Text style={styles.confirmButtonText}>Proceed to Pay</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={paymentModal}
+        onRequestClose={() => setPaymentModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Complete Payment</Text>
+              <TouchableOpacity onPress={() => setPaymentModal(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.playTitleModal}>{play.title}</Text>
+              <Text style={styles.paymentAmount}>KES {totalPrice}</Text>
+
+              {/* Payment Methods */}
+              <View style={styles.paymentMethods}>
+                <TouchableOpacity
+                  style={[styles.paymentMethod, paymentMethod === 'mpesa' && styles.paymentMethodActive]}
+                  onPress={() => setPaymentMethod('mpesa')}
+                >
+                  <Ionicons
+                    name="phone-portrait"
+                    size={24}
+                    color={paymentMethod === 'mpesa' ? '#6200EE' : '#666'}
+                  />
+                  <Text style={[
+                    styles.paymentMethodText,
+                    paymentMethod === 'mpesa' && styles.paymentMethodTextActive
+                  ]}>
+                    M-Pesa
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.paymentMethod, paymentMethod === 'card' && styles.paymentMethodActive]}
+                  onPress={() => setPaymentMethod('card')}
+                >
+                  <Ionicons
+                    name="card"
+                    size={24}
+                    color={paymentMethod === 'card' ? '#6200EE' : '#666'}
+                  />
+                  <Text style={[
+                    styles.paymentMethodText,
+                    paymentMethod === 'card' && styles.paymentMethodTextActive
+                  ]}>
+                    Card
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.paymentMethod, paymentMethod === 'cash' && styles.paymentMethodActive]}
+                  onPress={() => setPaymentMethod('cash')}
+                >
+                  <Ionicons
+                    name="cash"
+                    size={24}
+                    color={paymentMethod === 'cash' ? '#6200EE' : '#666'}
+                  />
+                  <Text style={[
+                    styles.paymentMethodText,
+                    paymentMethod === 'cash' && styles.paymentMethodTextActive
+                  ]}>
+                    Cash
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* M-Pesa Instructions */}
+              {paymentMethod === 'mpesa' && (
+                <View style={styles.mpesaInstructions}>
+                  <Text style={styles.instructionsTitle}>M-Pesa Instructions:</Text>
+                  <Text style={styles.instructionsText}>1. Go to M-Pesa menu</Text>
+                  <Text style={styles.instructionsText}>2. Select Lipa na M-Pesa</Text>
+                  <Text style={styles.instructionsText}>3. Enter Paybill: 123456</Text>
+                  <Text style={styles.instructionsText}>4. Account: TICKET{playId}</Text>
+                  <Text style={styles.instructionsText}>5. Enter amount: KES {totalPrice}</Text>
+                  <Text style={styles.instructionsText}>6. Enter your M-Pesa PIN</Text>
+                </View>
+              )}
+
+              {/* Payment Code Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Payment Code *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={paymentCode}
+                  onChangeText={setPaymentCode}
+                  placeholder={
+                    paymentMethod === 'mpesa'
+                      ? 'Enter M-Pesa transaction code'
+                      : 'Enter payment reference'
+                  }
+                  keyboardType="default"
+                  autoCapitalize="characters"
+                />
+                <Text style={styles.inputHelper}>
+                  Enter the transaction code received after payment
+                </Text>
+              </View>
+
+              {/* Payment Summary */}
+              <View style={styles.paymentSummary}>
+                <Text style={styles.paymentSummaryTitle}>Booking Summary</Text>
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Event:</Text>
+                  <Text style={styles.paymentValue}>{play.title}</Text>
+                </View>
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Tickets:</Text>
+                  <Text style={styles.paymentValue}>
+                    {quantity} × {selectedTicketType.toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Seats:</Text>
+                  <Text style={styles.paymentValue}>
+                    {allocatedSeats.map(s => s.number).join(', ')}
+                  </Text>
+                </View>
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Method:</Text>
+                  <Text style={styles.paymentValue}>{paymentMethod.toUpperCase()}</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={[styles.paymentRow, styles.paymentTotal]}>
+                  <Text style={styles.paymentTotalLabel}>Total Amount:</Text>
+                  <Text style={styles.paymentTotalValue}>KES {totalPrice}</Text>
+                </View>
+              </View>
+            </ScrollView>
+
+            {/* Payment Modal Footer */}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setPaymentModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Back</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.confirmButton, processingPayment && styles.confirmButtonDisabled]}
+                onPress={processPayment}
+                disabled={processingPayment}
+              >
+                {processingPayment ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                    <Text style={styles.confirmButtonText}>Confirm Booking</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  
+  // Loading and Error States
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 20
   },
-  errorText: {
-    color: 'red',
+  loadingText: {
+    marginTop: 10,
     fontSize: 16,
-    marginBottom: 20,
-    textAlign: 'center',
+    color: '#666'
   },
+  noDataText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 10,
+    marginBottom: 20
+  },
+  retryButton: {
+    backgroundColor: '#6200EE',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  
+  // Image Styles
   imageContainer: {
     width: '100%',
-    height: 250,
-    backgroundColor: '#e0e0e0',
+    height: 300,
+    position: 'relative'
   },
   image: {
     width: '100%',
-    height: '100%',
+    height: '100%'
   },
   noImage: {
+    backgroundColor: '#e0e0e0',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   noImageText: {
     color: '#666',
     fontSize: 16,
+    marginTop: 10
   },
+  pastEventOverlay: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    backgroundColor: 'rgba(244,67,54,0.9)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20
+  },
+  pastEventText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold'
+  },
+  
+  // Details Container
   detailsContainer: {
-    padding: 20,
+    padding: 20
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
-    textAlign: 'center',
+    color: '#1a1a1a',
+    marginBottom: 15,
+    textAlign: 'center'
   },
-  detailRow: {
+  
+  // Info Bar
+  infoBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 25,
+    padding: 15,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3
+  },
+  infoItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    flex: 1
   },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#555',
-    flex: 1,
-  },
-  value: {
-    fontSize: 16,
+  infoItemText: {
+    fontSize: 14,
     color: '#333',
-    flex: 2,
-    textAlign: 'right',
+    marginLeft: 8,
+    flex: 1
   },
-  price: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-  },
+  
+  // Section Styles
   section: {
-    marginTop: 25,
+    marginBottom: 30
   },
   sectionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 15
+  },
+  
+  // Prices Section
+  pricesSection: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3
+  },
+  pricesGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10
+  },
+  priceCard: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 10,
+    marginHorizontal: 5,
+    alignItems: 'center'
+  },
+  priceCardVip: {
+    backgroundColor: '#FFF3E0',
+    borderColor: '#FF9800',
+    borderWidth: 1
+  },
+  priceCardVvip: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#2196F3',
+    borderWidth: 1
+  },
+  priceType: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 5
+  },
+  priceValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    color: '#6200EE',
+    marginBottom: 5
   },
+  priceDesc: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center'
+  },
+  
+  // Description
   description: {
     fontSize: 16,
     lineHeight: 24,
     color: '#444',
-    textAlign: 'justify',
+    textAlign: 'justify'
   },
-  actorItem: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  
+  // Cast Section
+  castScroll: {
+    marginTop: 10
+  },
+  actorCard: {
+    alignItems: 'center',
+    marginRight: 20,
+    width: 100
+  },
+  actorAvatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10
   },
   actorName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#333',
+    textAlign: 'center'
   },
   actorRole: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
-    marginTop: 2,
+    textAlign: 'center',
+    marginTop: 2
   },
-  infoGrid: {
+  
+  // Details Grid
+  detailsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     flexWrap: 'wrap',
+    justifyContent: 'space-between'
   },
-  infoItem: {
+  detailCard: {
+    width: '48%',
     backgroundColor: '#fff',
     padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    minWidth: '48%',
+    borderRadius: 10,
+    marginBottom: 15,
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 2,
+    elevation: 2
   },
-  infoLabel: {
-    fontSize: 12,
-    color: '#777',
-    marginBottom: 5,
-  },
-  infoValue: {
-    fontSize: 16,
+  detailCardTitle: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#333',
+    marginTop: 10,
+    marginBottom: 5
   },
-  statusActive: {
-    color: '#4CAF50',
+  detailCardValue: {
+    fontSize: 16,
+    color: '#666'
   },
+  statusUpcoming: {
+    color: '#4CAF50'
+  },
+  statusPast: {
+    color: '#F44336'
+  },
+  
+  // Booking Container
   bookingContainer: {
-    marginTop: 30,
-    marginBottom: 40,
-    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 20
+  },
+  bookButton: {
+    backgroundColor: '#6200EE',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 18,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5
+  },
+  bookButtonDisabled: {
+    backgroundColor: '#9E9E9E'
+  },
+  bookButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10
   },
   bookingNote: {
     textAlign: 'center',
-    color: '#f44336',
+    color: '#F44336',
     marginTop: 10,
-    fontSize: 14,
+    fontSize: 14
   },
+  
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)'
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%'
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee'
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1a1a1a'
+  },
+  modalBody: {
+    padding: 20
+  },
+  playTitleModal: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center'
+  },
+  
+  // User Info
+  userInfo: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20
+  },
+  userInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  userInfoText: {
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 10
+  },
+  
+  // Ticket Type Buttons
+  ticketTypeButtons: {
+    flexDirection: 'row',
+    marginBottom: 20
+  },
+  ticketTypeButton: {
+    flex: 1,
+    padding: 15,
+    alignItems: 'center',
+    borderRadius: 10,
+    marginHorizontal: 5,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#ddd'
+  },
+  ticketTypeButtonActive: {
+    backgroundColor: '#6200EE',
+    borderColor: '#6200EE'
+  },
+  ticketTypeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333'
+  },
+  ticketTypeButtonTextActive: {
+    color: '#fff'
+  },
+  ticketTypePrice: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 5
+  },
+  
+  // Input Group
+  inputGroup: {
+    marginBottom: 20
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8
+  },
+  
+  // Quantity Selector
+  quantitySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    height: 50
+  },
+  quantityButton: {
+    padding: 10
+  },
+  quantityText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333'
+  },
+  quantityHelper: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 5,
+    textAlign: 'center'
+  },
+  
+  // Seat Toggle
+  seatToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20
+  },
+  seatToggleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6200EE'
+  },
+  
+  // Seat Display
+  seatDisplay: {
+    marginBottom: 20
+  },
+  seatDisplayTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10
+  },
+  seatLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+    backgroundColor: '#f8f9fa',
+    padding: 10,
+    borderRadius: 8
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 15,
+    marginBottom: 5
+  },
+  legendColor: {
+    width: 15,
+    height: 15,
+    borderRadius: 3,
+    marginRight: 5
+  },
+  legendRegular: {
+    backgroundColor: '#e3f2fd',
+    borderWidth: 1,
+    borderColor: '#2196F3'
+  },
+  legendVip: {
+    backgroundColor: '#FFF3E0',
+    borderWidth: 1,
+    borderColor: '#FF9800'
+  },
+  legendVvip: {
+    backgroundColor: '#E8F5E8',
+    borderWidth: 1,
+    borderColor: '#4CAF50'
+  },
+  legendAllocated: {
+    backgroundColor: '#6200EE',
+    borderWidth: 1,
+    borderColor: '#6200EE'
+  },
+  legendUnavailable: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ddd'
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#666'
+  },
+  seatAllocationInfo: {
+    backgroundColor: '#f0f7ff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15
+  },
+  seatAllocationText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600'
+  },
+  allocatedSeatsText: {
+    fontSize: 16,
+    color: '#6200EE',
+    fontWeight: 'bold',
+    marginTop: 5
+  },
+  seatsGrid: {
+    alignItems: 'center',
+    marginBottom: 15
+  },
+  seat: {
+    width: 35,
+    height: 35,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 3,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+    backgroundColor: '#e3f2fd'
+  },
+  seatVip: {
+    borderColor: '#FF9800',
+    backgroundColor: '#FFF3E0'
+  },
+  seatVvip: {
+    borderColor: '#4CAF50',
+    backgroundColor: '#E8F5E8'
+  },
+  seatAllocated: {
+    backgroundColor: '#6200EE',
+    borderColor: '#6200EE'
+  },
+  seatUnavailable: {
+    backgroundColor: '#f5f5f5',
+    borderColor: '#ddd'
+  },
+  seatText: {
+    fontSize: 10,
+    color: '#333',
+    fontWeight: '600'
+  },
+  seatTextAllocated: {
+    color: '#fff'
+  },
+  seatTextUnavailable: {
+    color: '#999'
+  },
+  seatCheckmark: {
+    position: 'absolute',
+    top: -3,
+    right: -3
+  },
+  stageIndicator: {
+    backgroundColor: '#333',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10
+  },
+  stageText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold'
+  },
+  
+  // Price Summary
+  priceSummary: {
+    backgroundColor: '#f8f9fa',
+    padding: 20,
+    borderRadius: 12
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10
+  },
+  priceLabel: {
+    fontSize: 16,
+    color: '#666'
+  },
+  priceValue: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600'
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#ddd',
+    marginVertical: 10
+  },
+  totalRow: {
+    marginTop: 10
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333'
+  },
+  totalValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#6200EE'
+  },
+  
+  // Modal Footer
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    gap: 10
+  },
+  cancelButton: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  confirmButton: {
+    flex: 2,
+    padding: 15,
+    backgroundColor: '#6200EE',
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  confirmButtonDisabled: {
+    backgroundColor: '#9E9E9E'
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8
+  },
+  
+  // Payment Styles
+  paymentAmount: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#6200EE',
+    textAlign: 'center',
+    marginBottom: 20
+  },
+  paymentMethods: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20
+  },
+  paymentMethod: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 10,
+    marginHorizontal: 5,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#ddd'
+  },
+  paymentMethodActive: {
+    backgroundColor: '#6200EE10',
+    borderColor: '#6200EE'
+  },
+  paymentMethodText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 5
+  },
+  paymentMethodTextActive: {
+    color: '#6200EE'
+  },
+  
+  // M-Pesa Instructions
+  mpesaInstructions: {
+    backgroundColor: '#f0f7ff',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20
+  },
+  instructionsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10
+  },
+  instructionsText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5
+  },
+  
+  // Input
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9'
+  },
+  inputHelper: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 5
+  },
+  
+  // Payment Summary
+  paymentSummary: {
+    backgroundColor: '#f8f9fa',
+    padding: 20,
+    borderRadius: 12
+  },
+  paymentSummaryTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10
+  },
+  paymentLabel: {
+    fontSize: 14,
+    color: '#666'
+  },
+  paymentValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600'
+  },
+  paymentTotal: {
+    marginTop: 10
+  },
+  paymentTotalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333'
+  },
+  paymentTotalValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6200EE'
+  }
 });
 
 export default PlayDetailsScreen;
