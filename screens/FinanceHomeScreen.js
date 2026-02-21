@@ -1,54 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  ActivityIndicator,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Dimensions,
-  Animated
+  Animated,
+  Linking,
+  Alert
 } from "react-native";
-import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const API = "http://192.168.0.103:5000";
 
 export default function FinanceScreen({ navigation }) {
-  const [loading, setLoading] = useState(true);
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [orderCounts, setOrderCounts] = useState({ pending: 0, paid: 0 });
-  const [revenuePerItem, setRevenuePerItem] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(false);
-
   const slideAnim = useState(new Animated.Value(-SCREEN_WIDTH))[0];
-
-  const fetchFinanceData = async () => {
-    try {
-      setLoading(true);
-      const [revenueRes, countsRes, perItemRes] = await Promise.all([
-        axios.get(`${API}/orders/finance/total-revenue`),
-        axios.get(`${API}/orders/finance/order-counts`),
-        axios.get(`${API}/orders/finance/revenue-per-item`)
-      ]);
-
-      setTotalRevenue(revenueRes.data.totalRevenue || 0);
-      setOrderCounts(countsRes.data || { pending: 0, paid: 0 });
-      setRevenuePerItem(perItemRes.data || {});
-    } catch {
-      Alert.alert("Error", "Failed to load finance data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchFinanceData();
-  }, []);
 
   const toggleDrawer = () => {
     Animated.timing(slideAnim, {
@@ -60,33 +29,26 @@ export default function FinanceScreen({ navigation }) {
 
   const goHome = () => toggleDrawer();
 
+  const handleContact = (type) => {
+    if (type === "email") {
+      Linking.openURL("mailto:support@fanakaarts.com");
+    } else if (type === "phone") {
+      Linking.openURL("tel:+254700000000");
+    }
+  };
+
   const handleLogout = async () => {
     Alert.alert("Logout", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Logout",
         onPress: async () => {
-          await AsyncStorage.clear();
-          navigation.replace("Login");
+          await AsyncStorage.clear(); // clear saved tokens/data
+          navigation.replace("Login"); // navigate to Login screen
         }
       }
     ]);
   };
-
-  const renderRevenueItem = ({ item }) => (
-    <View style={styles.itemRow}>
-      <Text style={styles.itemName}>{item[0]}</Text>
-      <Text style={styles.itemRevenue}>KES {item[1].toLocaleString()}</Text>
-    </View>
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#6200EE" />
-      </View>
-    );
-  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -95,13 +57,21 @@ export default function FinanceScreen({ navigation }) {
         <TouchableOpacity onPress={toggleDrawer}>
           <Ionicons name="menu" size={28} color="#fff" />
         </TouchableOpacity>
+
         <Text style={styles.headerTitle}>Finance Dashboard</Text>
+
+        <TouchableOpacity
+          style={{ marginLeft: "auto" }}
+          onPress={() => navigation.navigate("EmployeeInboxScreen")}
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={28} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       {/* CONTENT */}
       <ScrollView style={styles.container}>
         {/* ABOUT */}
-        <View style={styles.aboutCard}>
+        <View style={[styles.aboutCard, { backgroundColor: "#ff9a9e" }]}>
           <Text style={styles.aboutTitle}>Fanaka Arts</Text>
           <Text style={styles.aboutText}>
             Fanaka Arts is a creative theatre platform that manages plays,
@@ -110,58 +80,50 @@ export default function FinanceScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* TOTAL REVENUE */}
-        <View style={styles.mainCard}>
-          <Text style={styles.label}>Total Revenue</Text>
-          <Text style={styles.amount}>KES {totalRevenue.toLocaleString()}</Text>
-        </View>
-
         {/* QUICK ACTIONS */}
         <View style={styles.quickActions}>
           <QuickButton
             icon="ticket-outline"
             label="Tickets"
+            color="#fbc2eb"
             onPress={() => navigation.navigate("Tickets")}
           />
           <QuickButton
             icon="cube-outline"
             label="Inventory Orders"
+            color="#a6c1ee"
             onPress={() => navigation.navigate("InventoryOrders")}
+          />
+          <QuickButton
+            icon="chatbubble-ellipses-outline"
+            label="Messages"
+            color="#ffecd2"
+            onPress={() => navigation.navigate("EmployeeInboxScreen")}
           />
         </View>
 
-        {/* COUNTS */}
-        <View style={styles.row}>
-          <View style={styles.smallCard}>
-            <Text style={styles.label}>Pending Orders</Text>
-            <Text style={styles.count}>{orderCounts.pending}</Text>
-          </View>
-
-          <View style={styles.smallCard}>
-            <Text style={styles.label}>Paid Orders</Text>
-            <Text style={styles.count}>{orderCounts.paid}</Text>
-          </View>
-        </View>
-
-        {/* REVENUE PER ITEM */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Revenue Per Item</Text>
-          {Object.keys(revenuePerItem).length === 0 ? (
-            <Text>No approved payments yet</Text>
-          ) : (
-            <FlatList
-              data={Object.entries(revenuePerItem)}
-              keyExtractor={(item) => item[0]}
-              renderItem={renderRevenueItem}
-            />
-          )}
+        {/* CONTACT US */}
+        <View style={[styles.contactCard, { backgroundColor: "#cfd9df" }]}>
+          <Text style={styles.sectionTitle}>Contact Us</Text>
+          <TouchableOpacity
+            style={styles.contactButton}
+            onPress={() => handleContact("email")}
+          >
+            <Ionicons name="mail-outline" size={20} color="#fff" />
+            <Text style={styles.contactText}>Email: support@fanakaarts.com</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.contactButton, { backgroundColor: "#6200EE" }]}
+            onPress={() => handleContact("phone")}
+          >
+            <Ionicons name="call-outline" size={20} color="#fff" />
+            <Text style={styles.contactText}>Call: +254 700 000000</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
       {/* OVERLAY */}
-      {drawerOpen && (
-        <TouchableOpacity style={styles.overlay} onPress={toggleDrawer} />
-      )}
+      {drawerOpen && <TouchableOpacity style={styles.overlay} onPress={toggleDrawer} />}
 
       {/* DRAWER */}
       <Animated.View style={[styles.drawer, { left: slideAnim }]}>
@@ -185,6 +147,14 @@ export default function FinanceScreen({ navigation }) {
           }}
         />
         <DrawerItem
+          icon="chatbubble-ellipses-outline"
+          label="Messages"
+          onPress={() => {
+            toggleDrawer();
+            navigation.navigate("EmployeeInboxScreen");
+          }}
+        />
+        <DrawerItem
           icon="log-out-outline"
           label="Logout"
           danger
@@ -196,10 +166,10 @@ export default function FinanceScreen({ navigation }) {
 }
 
 /* QUICK BUTTON */
-const QuickButton = ({ icon, label, onPress }) => (
-  <TouchableOpacity style={styles.quickCard} onPress={onPress}>
-    <Ionicons name={icon} size={28} color="#6200EE" />
-    <Text style={styles.quickText}>{label}</Text>
+const QuickButton = ({ icon, label, onPress, color }) => (
+  <TouchableOpacity style={[styles.quickCard, { backgroundColor: color }]} onPress={onPress}>
+    <Ionicons name={icon} size={28} color="#fff" />
+    <Text style={[styles.quickText, { color: "#fff" }]}>{label}</Text>
   </TouchableOpacity>
 );
 
@@ -207,16 +177,12 @@ const QuickButton = ({ icon, label, onPress }) => (
 const DrawerItem = ({ icon, label, onPress, danger }) => (
   <TouchableOpacity style={styles.drawerItem} onPress={onPress}>
     <Ionicons name={icon} size={22} color={danger ? "#e94560" : "#333"} />
-    <Text style={[styles.drawerText, danger && { color: "#e94560" }]}>
-      {label}
-    </Text>
+    <Text style={[styles.drawerText, danger && { color: "#e94560" }]}>{label}</Text>
   </TouchableOpacity>
 );
 
 /* STYLES */
 const styles = StyleSheet.create({
-  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
-
   header: {
     height: 60,
     backgroundColor: "#6200EE",
@@ -224,83 +190,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16
   },
-
-  headerTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginLeft: 16
-  },
-
-  container: { padding: 16, backgroundColor: "#f4f4f4" },
-
-  aboutCard: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 14,
-    marginBottom: 16
-  },
-
-  aboutTitle: { fontSize: 18, fontWeight: "bold" },
-  aboutText: { marginTop: 6, color: "#555", lineHeight: 20 },
-
-  mainCard: {
-    backgroundColor: "#6200EE",
-    padding: 24,
-    borderRadius: 18,
-    marginBottom: 16
-  },
-
-  label: { color: "#ddd", fontSize: 14 },
-  amount: { color: "#fff", fontSize: 28, fontWeight: "bold", marginTop: 8 },
-
-  quickActions: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16
-  },
-
+  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "bold", marginLeft: 16 },
+  container: { padding: 16, backgroundColor: "#f0f4f7" },
+  aboutCard: { padding: 16, borderRadius: 18, marginBottom: 16 },
+  aboutTitle: { fontSize: 18, fontWeight: "bold", color: "#fff" },
+  aboutText: { marginTop: 6, lineHeight: 20, color: "#fff" },
+  quickActions: { flexDirection: "row", gap: 12, marginBottom: 16 },
   quickCard: {
     flex: 1,
-    backgroundColor: "#fff",
     padding: 20,
     borderRadius: 16,
     alignItems: "center"
   },
-
   quickText: { marginTop: 6, fontWeight: "bold" },
-
-  row: { flexDirection: "row", gap: 12 },
-
-  smallCard: {
-    flex: 1,
-    backgroundColor: "#fff",
+  contactCard: {
     padding: 20,
-    borderRadius: 16
-  },
-
-  count: { fontSize: 22, fontWeight: "bold", marginTop: 6 },
-
-  card: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 16,
+    borderRadius: 18,
     marginTop: 16
   },
-
-  sectionTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 10 },
-
-  itemRow: {
+  sectionTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 12 },
+  contactButton: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#ccc"
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: "#FF6F61",
+    gap: 10
   },
-
-  itemName: { fontSize: 15 },
-  itemRevenue: { fontWeight: "bold" },
-
+  contactText: { color: "#fff", fontWeight: "bold" },
   drawer: {
     position: "absolute",
     top: 0,
@@ -311,18 +229,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     elevation: 8
   },
-
   drawerTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 20 },
-
-  drawerItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    gap: 12
-  },
-
+  drawerItem: { flexDirection: "row", alignItems: "center", paddingVertical: 14, gap: 12 },
   drawerText: { fontSize: 16 },
-
   overlay: {
     position: "absolute",
     top: 0,

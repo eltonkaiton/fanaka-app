@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, RefreshCont
 import axios from "axios";
 import { Ionicons } from "@expo/vector-icons";
 
-const API_BASE_URL = "http://192.168.0.103:5000";
+const API_BASE_URL = "http://192.168.100.164:5000";
 
 export default function TicketsScreen() {
   const [loading, setLoading] = useState(true);

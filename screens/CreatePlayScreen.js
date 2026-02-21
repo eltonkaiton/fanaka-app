@@ -101,7 +101,7 @@ export default function CreatePlayScreen({ navigation }) {
 
     try {
       setLoading(true);
-      const API_URL = "http://192.168.0.103:5000/api/plays";
+      const API_URL = "http://192.168.100.164:5000/api/plays";
 
       const formData = new FormData();
       formData.append("title", title.trim());

@@ -9,7 +9,7 @@ import axios from "axios";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 
-const API = "http://192.168.0.103:5000";
+const API = "http://192.168.100.164:5000";
 
 export default function OrderScreen() {
   const [loading, setLoading] = useState(true);

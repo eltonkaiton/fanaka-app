@@ -11,7 +11,7 @@ export default function AssignActorsScreen({ route, navigation }) {
   // Fetch all active actors
   const fetchActors = async () => {
     try {
-      const response = await axios.get('http://192.168.0.103:5000/api/actors?status=Active');
+      const response = await axios.get('http://192.168.100.164:5000/api/actors?status=Active');
       setActors(response.data);
     } catch (error) {
       console.log('Fetch Actors Error:', error?.response?.data || error);
@@ -47,7 +47,7 @@ export default function AssignActorsScreen({ route, navigation }) {
     }));
 
     try {
-      const API_URL = `http://192.168.0.103:5000/api/plays/${playId}/assign-actors`;
+      const API_URL = `http://192.168.100.164:5000/api/plays/${playId}/assign-actors`;
       const response = await axios.post(API_URL, { actors: actorsToAssign });
 
       if (response.status === 200) {

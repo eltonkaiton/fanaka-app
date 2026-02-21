@@ -1,4 +1,3 @@
-// navigation/AppNavigator.js
 import React from "react";
 import { Alert } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
@@ -25,6 +24,7 @@ import ContactUsScreen from "../screens/ContactUsScreen";
 import AboutUsScreen from "../screens/AboutUsScreen";
 import HelpScreen from "../screens/HelpScreen";
 import MyBookingsScreen from "../screens/MyBookingsScreen";
+import AudienceChatScreen from "../screens/AudienceChatScreen";
 
 /* =======================
    PLAY MANAGER SCREENS
@@ -33,7 +33,12 @@ import PlayManagerHomeScreen from "../screens/PlayManagerHomeScreen";
 import CreatePlayScreen from "../screens/CreatePlayScreen";
 import ManagePlaysScreen from "../screens/ManagePlaysScreen";
 import AssignActorsScreen from "../screens/AssignActorsScreen";
-import ManagerBookingsScreen from "../screens/ManagerBookingsScreen"; // ✅ ADDED
+import ManagerBookingsScreen from "../screens/ManagerBookingsScreen";
+
+/* =======================
+   USHER SCREEN
+======================= */
+import UsherScreen from "../screens/UsherScreen";
 
 /* =======================
    ACTOR SCREEN
@@ -57,6 +62,11 @@ import OrderScreen from "../screens/OrderScreen";
    SUPPLIER SCREEN
 ======================= */
 import SupplierHomeScreen from "../screens/SupplierHomeScreen";
+
+/* =======================
+   EMPLOYEE INBOX
+======================= */
+import EmployeeInboxScreen from "../screens/EmployeeInboxScreen";
 
 /* =======================
    NAVIGATORS
@@ -84,6 +94,7 @@ const CustomDrawerContent = (props) => {
     <DrawerContentScrollView {...props}>
       <DrawerItem label="Home" onPress={() => navigation.navigate("HomeDrawer")} />
       <DrawerItem label="My Bookings" onPress={() => navigation.navigate("MyBookings")} />
+      <DrawerItem label="Customer Support" onPress={() => navigation.navigate("AudienceChat")} />
       <DrawerItem label="Contact Us" onPress={() => navigation.navigate("ContactUs")} />
       <DrawerItem label="About Us" onPress={() => navigation.navigate("AboutUs")} />
       <DrawerItem label="Help" onPress={() => navigation.navigate("Help")} />
@@ -110,26 +121,11 @@ const PlayManagerDrawerContent = (props) => {
 
   return (
     <DrawerContentScrollView {...props}>
-      <DrawerItem 
-        label="Dashboard" 
-        onPress={() => navigation.navigate("PlayManagerHome")} 
-      />
-      <DrawerItem 
-        label="Manage Bookings" 
-        onPress={() => navigation.navigate("ManagerBookings")} 
-      />
-      <DrawerItem 
-        label="Manage Plays" 
-        onPress={() => navigation.navigate("ManagePlays")} 
-      />
-      <DrawerItem 
-        label="Create Play" 
-        onPress={() => navigation.navigate("CreatePlay")} 
-      />
-      <DrawerItem 
-        label="Assign Actors" 
-        onPress={() => navigation.navigate("AssignActors")} 
-      />
+      <DrawerItem label="Dashboard" onPress={() => navigation.navigate("PlayManagerHome")} />
+      <DrawerItem label="Manage Bookings" onPress={() => navigation.navigate("ManagerBookings")} />
+      <DrawerItem label="Manage Plays" onPress={() => navigation.navigate("ManagePlays")} />
+      <DrawerItem label="Create Play" onPress={() => navigation.navigate("CreatePlay")} />
+      <DrawerItem label="Assign Actors" onPress={() => navigation.navigate("AssignActors")} />
       <DrawerItem label="Logout" onPress={handleLogout} />
     </DrawerContentScrollView>
   );
@@ -177,6 +173,7 @@ const DrawerNavigator = () => (
   >
     <Drawer.Screen name="HomeDrawer" component={HomeScreen} options={{ title: "Home" }} />
     <Drawer.Screen name="MyBookings" component={MyBookingsScreen} options={{ title: "My Bookings" }} />
+    <Drawer.Screen name="AudienceChat" component={AudienceChatScreen} options={{ title: "Customer Support", headerShown: false }} />
     <Drawer.Screen name="ContactUs" component={ContactUsScreen} options={{ title: "Contact Us" }} />
     <Drawer.Screen name="AboutUs" component={AboutUsScreen} options={{ title: "About Us" }} />
     <Drawer.Screen name="Help" component={HelpScreen} options={{ title: "Help & Support" }} />
@@ -196,46 +193,11 @@ const PlayManagerDrawerNavigator = () => (
       headerTitleStyle: { fontWeight: "bold" }
     }}
   >
-    <Drawer.Screen 
-      name="PlayManagerHome" 
-      component={PlayManagerHomeScreen} 
-      options={{ 
-        title: "Play Manager Dashboard",
-        drawerLabel: "Dashboard"
-      }} 
-    />
-    <Drawer.Screen 
-      name="ManagerBookings" 
-      component={ManagerBookingsScreen} 
-      options={{ 
-        title: "Manage Bookings",
-        drawerLabel: "Manage Bookings"
-      }} 
-    />
-    <Drawer.Screen 
-      name="CreatePlay" 
-      component={CreatePlayScreen} 
-      options={{ 
-        title: "Create New Play",
-        drawerLabel: "Create Play"
-      }} 
-    />
-    <Drawer.Screen 
-      name="ManagePlays" 
-      component={ManagePlaysScreen} 
-      options={{ 
-        title: "Manage Plays",
-        drawerLabel: "Manage Plays"
-      }} 
-    />
-    <Drawer.Screen 
-      name="AssignActors" 
-      component={AssignActorsScreen} 
-      options={{ 
-        title: "Assign Actors",
-        drawerLabel: "Assign Actors"
-      }} 
-    />
+    <Drawer.Screen name="PlayManagerHome" component={PlayManagerHomeScreen} options={{ title: "Play Manager Dashboard", drawerLabel: "Dashboard" }} />
+    <Drawer.Screen name="ManagerBookings" component={ManagerBookingsScreen} options={{ title: "Manage Bookings", drawerLabel: "Manage Bookings" }} />
+    <Drawer.Screen name="CreatePlay" component={CreatePlayScreen} options={{ title: "Create New Play", drawerLabel: "Create Play" }} />
+    <Drawer.Screen name="ManagePlays" component={ManagePlaysScreen} options={{ title: "Manage Plays", drawerLabel: "Manage Plays" }} />
+    <Drawer.Screen name="AssignActors" component={AssignActorsScreen} options={{ title: "Assign Actors", drawerLabel: "Assign Actors" }} />
   </Drawer.Navigator>
 );
 
@@ -252,14 +214,7 @@ const SupplierDrawerNavigator = () => (
       headerTitleStyle: { fontWeight: "bold" }
     }}
   >
-    <Drawer.Screen 
-      name="SupplierHome" 
-      component={SupplierHomeScreen} 
-      options={{ 
-        title: "Supplier Dashboard",
-        drawerLabel: "Dashboard"
-      }} 
-    />
+    <Drawer.Screen name="SupplierHome" component={SupplierHomeScreen} options={{ title: "Supplier Dashboard", drawerLabel: "Dashboard" }} />
   </Drawer.Navigator>
 );
 
@@ -284,17 +239,17 @@ const AppNavigator = () => {
         {/* AUDIENCE */}
         <Stack.Screen name="Home" component={DrawerNavigator} options={{ headerShown: false }} />
         <Stack.Screen name="PlayDetails" component={PlayDetailsScreen} options={{ title: "Play Details" }} />
+        <Stack.Screen name="AudienceChat" component={AudienceChatScreen} options={{ headerShown: false }} />
 
         {/* PLAY MANAGER */}
-        <Stack.Screen 
-          name="PlayManagerHome" 
-          component={PlayManagerDrawerNavigator} 
-          options={{ headerShown: false }} 
-        />
+        <Stack.Screen name="PlayManagerHome" component={PlayManagerDrawerNavigator} options={{ headerShown: false }} />
         <Stack.Screen name="CreatePlay" component={CreatePlayScreen} options={{ title: "Create New Play" }} />
         <Stack.Screen name="ManagePlays" component={ManagePlaysScreen} options={{ title: "Manage Plays" }} />
         <Stack.Screen name="AssignActors" component={AssignActorsScreen} options={{ title: "Assign Actors" }} />
         <Stack.Screen name="ManagerBookings" component={ManagerBookingsScreen} options={{ title: "Manage Bookings" }} />
+
+        {/* USHER */}
+        <Stack.Screen name="Usher" component={UsherScreen} options={{ title: "Ticket Verification" }} />
 
         {/* ACTOR */}
         <Stack.Screen name="ActorHome" component={ActorHomeScreen} options={{ title: "Actor Dashboard" }} />
@@ -308,12 +263,15 @@ const AppNavigator = () => {
         <Stack.Screen name="Tickets" component={TicketsScreen} options={{ title: "All Tickets" }} />
         <Stack.Screen name="Order" component={OrderScreen} options={{ title: "Inventory Orders" }} />
 
-        {/* SUPPLIER */}
-        <Stack.Screen 
-          name="SupplierHome" 
-          component={SupplierDrawerNavigator} 
-          options={{ headerShown: false }} 
+        {/* EMPLOYEE INBOX */}
+        <Stack.Screen
+          name="EmployeeInboxScreen"
+          component={EmployeeInboxScreen}
+          options={{ title: "Inbox" }}
         />
+
+        {/* SUPPLIER */}
+        <Stack.Screen name="SupplierHome" component={SupplierDrawerNavigator} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

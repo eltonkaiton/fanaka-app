@@ -21,7 +21,7 @@ const ManagerBookingsScreen = ({ navigation }) => {
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem('token');
-      const response = await axios.get('http://192.168.0.103:5000/api/bookings', {
+      const response = await axios.get('http://192.168.100.164:5000/api/bookings', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
