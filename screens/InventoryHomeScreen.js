@@ -47,7 +47,7 @@ export default function InventoryHomeScreen({ navigation }) {
 
   const fetchAllPlaysWithMaterials = async () => {
     try {
-      const res = await axios.get("http://192.168.100.164:5000/api/plays");
+      const res = await axios.get("https://fanaka-server-1.onrender.com/api/plays");
       const playsWithMaterials = res.data.map(p => ({
         ...p,
         materialRequests: p.materialRequests?.map(req => ({
@@ -66,7 +66,7 @@ export default function InventoryHomeScreen({ navigation }) {
 
   const fetchInventoryItems = async () => {
     try {
-      const res = await axios.get("http://192.168.100.164:5000/api/items");
+      const res = await axios.get("https://fanaka-server-1.onrender.com/api/items");
       setInventoryItems(res.data || []);
     } catch (err) {
       console.log("Fetch Items Error:", err.response?.data || err);
@@ -77,7 +77,7 @@ export default function InventoryHomeScreen({ navigation }) {
 
   const fetchOrders = async () => {
     try {
-      const res = await axios.get("http://192.168.100.164:5000/api/orders");
+      const res = await axios.get("https://fanaka-server-1.onrender.com/api/orders");
       // Check the structure of the response
       console.log("Orders API Response:", res.data);
       
@@ -125,7 +125,7 @@ export default function InventoryHomeScreen({ navigation }) {
 
   const checkInventoryAvailability = async (materialsWithQuantities) => {
     try {
-      const inventoryRes = await axios.get("http://192.168.100.164:5000/api/items");
+      const inventoryRes = await axios.get("https://fanaka-server-1.onrender.com/api/items");
       const inventory = inventoryRes.data || [];
       const insufficientItems = [];
       materialsWithQuantities.forEach(requestedMaterial => {
@@ -155,7 +155,7 @@ export default function InventoryHomeScreen({ navigation }) {
         {
           text: "Process", style: "default", onPress: async () => {
             try {
-              await axios.patch(`http://192.168.100.164:5000/api/plays/${playId}/material-requests/${requestId}/processing`);
+              await axios.patch(`https://fanaka-server-1.onrender.com/api/plays/${playId}/material-requests/${requestId}/processing`);
               Alert.alert("Success", "Materials marked as processing.");
               loadAllData();
             } catch (err) {
@@ -178,7 +178,7 @@ export default function InventoryHomeScreen({ navigation }) {
         {
           text: "Prepare", style: "default", onPress: async () => {
             try {
-              await axios.patch(`http://192.168.100.164:5000/api/plays/${playId}/material-requests/${requestId}/prepare`);
+              await axios.patch(`https://fanaka-server-1.onrender.com/api/plays/${playId}/material-requests/${requestId}/prepare`);
               await deductMaterialsFromInventory(materialsWithQuantities);
               Alert.alert("Success", "Materials marked as prepared and deducted from inventory.");
               loadAllData();
@@ -197,7 +197,7 @@ export default function InventoryHomeScreen({ navigation }) {
 
   const deductMaterialsFromInventory = async (materialsWithQuantities) => {
     try {
-      const inventoryRes = await axios.get("http://192.168.100.164:5000/api/items");
+      const inventoryRes = await axios.get("https://fanaka-server-1.onrender.com/api/items");
       const inventory = inventoryRes.data || [];
       const deductionPromises = materialsWithQuantities.map(async (requestedMaterial) => {
         const inventoryItem = inventory.find(item =>
@@ -206,7 +206,7 @@ export default function InventoryHomeScreen({ navigation }) {
         );
         if (inventoryItem) {
           const newQuantity = Math.max(0, inventoryItem.quantity - requestedMaterial.quantity);
-          await axios.put(`http://192.168.100.164:5000/api/items/${inventoryItem._id}`, { ...inventoryItem, quantity: newQuantity });
+          await axios.put(`https://fanaka-server-1.onrender.com/api/items/${inventoryItem._id}`, { ...inventoryItem, quantity: newQuantity });
         }
       });
       await Promise.all(deductionPromises);
@@ -222,7 +222,7 @@ export default function InventoryHomeScreen({ navigation }) {
       return;
     }
     try {
-      await axios.post("http://192.168.100.164:5000/api/items", newItem);
+      await axios.post("https://fanaka-server-1.onrender.com/api/items", newItem);
       Alert.alert("Success", "Item added successfully");
       setModalVisible(false);
       setNewItem({ name: "", category: "", quantity: "", minThreshold: "", unit: "" });
@@ -244,7 +244,7 @@ export default function InventoryHomeScreen({ navigation }) {
         unitCost: 0, // Add default unit cost
         totalCost: 0 // Add default total cost
       };
-      await axios.post("http://192.168.100.164:5000/inventory/orders", orderPayload);
+      await axios.post("https://fanaka-server-1.onrender.com/inventory/orders", orderPayload);
       Alert.alert("Success", "Order created successfully");
       setOrderModalVisible(false);
       setOrderData({ itemId: "", itemName: "", quantity: "", supplier: "" });

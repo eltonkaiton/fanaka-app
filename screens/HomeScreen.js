@@ -1,5 +1,5 @@
 import React,{useState,useEffect,useRef}from'react';import{View,Text,FlatList,TouchableOpacity,StyleSheet,Image,TextInput,Alert,ScrollView,ActivityIndicator,RefreshControl,Dimensions,Animated}from'react-native';import axios from'axios';import {SafeAreaView}from'react-native-safe-area-context';import{Ionicons}from'@expo/vector-icons';
-const{width}=Dimensions.get('window');const API_BASE_URL='http://192.168.100.164:5000';
+const{width}=Dimensions.get('window');const API_BASE_URL='https://fanaka-server-1.onrender.com';
 const HomeScreen=({navigation})=>{const[plays,setPlays]=useState([]);const[filteredPlays,setFilteredPlays]=useState([]);const[search,setSearch]=useState("");const[loading,setLoading]=useState(true);const[refreshing,setRefreshing]=useState(false);const[featuredPlays,setFeaturedPlays]=useState([]);const[activeCategory,setActiveCategory]=useState('all');const scrollX=useRef(new Animated.Value(0)).current;
 const categories=[{id:'all',label:'All Plays'},{id:'upcoming',label:'Upcoming'},{id:'thisWeek',label:'This Week'},{id:'popular',label:'Popular'}];
 useEffect(()=>{fetchPlays();},[]);useEffect(()=>{filterAndSortPlays();},[search,plays,activeCategory]);

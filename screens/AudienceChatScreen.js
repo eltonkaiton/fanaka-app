@@ -17,8 +17,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { io } from "socket.io-client";
 
-const API_BASE_URL = "http://192.168.100.164:5000";
-const SOCKET_URL = "http://192.168.100.164:5000";
+const API_BASE_URL = "https://fanaka-server-1.onrender.com";
+const SOCKET_URL = "https://fanaka-server-1.onrender.com";
 
 /* ✅ Admin Removed */
 const ALLOWED_DEPARTMENTS = ["administration", "finance"];

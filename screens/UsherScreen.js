@@ -36,7 +36,7 @@ export default function UsherScreen({ navigation }) {
     try {
       const token = await AsyncStorage.getItem('token');
       const today = new Date().toISOString().split('T')[0];
-      const response = await axios.get(`http://192.168.100.164:5000/api/bookings?date=${today}&status=confirmed`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await axios.get(`https://fanaka-server-1.onrender.com/api/bookings?date=${today}&status=confirmed`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.data.success) setTodayBookings(response.data.bookings);
     } catch (error) {
       console.error('Error fetching today bookings:', error);
@@ -47,7 +47,7 @@ export default function UsherScreen({ navigation }) {
   const fetchAllBookings = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await axios.get('http://192.168.100.164:5000/api/bookings', { headers: { Authorization: `Bearer ${token}` } });
+      const response = await axios.get('https://fanaka-server-1.onrender.com/api/bookings', { headers: { Authorization: `Bearer ${token}` } });
       if (response.data.success) setAllBookings(response.data.bookings);
     } catch (error) {
       console.error('Error fetching all bookings:', error);
@@ -75,7 +75,7 @@ export default function UsherScreen({ navigation }) {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await axios.get(`http://192.168.100.164:5000/api/bookings/verify/${bookingRef}`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await axios.get(`https://fanaka-server-1.onrender.com/api/bookings/verify/${bookingRef}`, { headers: { Authorization: `Bearer ${token}` } });
       if (response.data.success) {
         setBookingData(response.data.booking);
         setShowBookingDetails(true);
@@ -94,7 +94,7 @@ export default function UsherScreen({ navigation }) {
     if (!bookingData) return;
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await axios.put(`http://192.168.100.164:5000/api/bookings/${bookingData.id}/checkin`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await axios.put(`https://fanaka-server-1.onrender.com/api/bookings/${bookingData.id}/checkin`, {}, { headers: { Authorization: `Bearer ${token}` } });
       if (response.data.success) {
         Alert.alert('Success', 'Customer checked in successfully!', [
           { text: 'OK', onPress: () => {

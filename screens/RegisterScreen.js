@@ -13,7 +13,7 @@ import axios from "axios";
 
 // Replace this with your machine's local network IP if testing on a real device
 const BASE_URL =
-  Platform.OS === "android" ? "http://192.168.100.164:5000" : "http://localhost:5000";
+  Platform.OS === "android" ? "https://fanaka-server-1.onrender.com" : "http://localhost:5000";
 
 const RegisterScreen = ({ navigation }) => {
   const [username, setUsername] = useState("");

@@ -17,7 +17,7 @@ import axios from "axios";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 
-const API_BASE_URL = "http://192.168.100.164:5000";
+const API_BASE_URL = "https://fanaka-server-1.onrender.com";
 
 export default function FinanceOrdersScreen() {
   const [loading, setLoading] = useState(true);

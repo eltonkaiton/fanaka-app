@@ -13,7 +13,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 
 const { width, height } = Dimensions.get("window");
-const API = "http://192.168.100.164:5000";
+const API = "https://fanaka-server-1.onrender.com";
 
 export default function SupplierHomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);

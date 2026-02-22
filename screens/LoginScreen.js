@@ -11,9 +11,9 @@ const LoginScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const API_ENDPOINTS = {
-    audience: "http://192.168.100.164:5000/api/users/login",
-    employee: "http://192.168.100.164:5000/api/employees/login",
-    actor: "http://192.168.100.164:5000/api/actors/login",
+    audience: "https://fanaka-server-1.onrender.com/api/users/login",
+    employee: "https://fanaka-server-1.onrender.com/api/employees/login",
+    actor: "https://fanaka-server-1.onrender.com/api/actors/login",
   };
 
   const handleLogin = async () => {

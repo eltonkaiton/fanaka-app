@@ -16,7 +16,7 @@ import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import QRCode from 'react-native-qrcode-svg';
 
-const API_BASE_URL = 'http://192.168.100.164:5000';
+const API_BASE_URL = 'https://fanaka-server-1.onrender.com';
 const { width } = Dimensions.get('window');
 
 const MyBookingsScreen = ({ navigation }) => {

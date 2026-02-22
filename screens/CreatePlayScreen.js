@@ -101,7 +101,7 @@ export default function CreatePlayScreen({ navigation }) {
 
     try {
       setLoading(true);
-      const API_URL = "http://192.168.100.164:5000/api/plays";
+      const API_URL = "https://fanaka-server-1.onrender.com/api/plays";
 
       const formData = new FormData();
       formData.append("title", title.trim());

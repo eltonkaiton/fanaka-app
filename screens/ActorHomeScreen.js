@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet, FlatList, TouchableOpacity, Image, A
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import axios from "axios";
 
-const API_BASE_URL = "http://192.168.100.164:5000";
+const API_BASE_URL = "https://fanaka-server-1.onrender.com";
 
 export default function ActorHomeScreen({ navigation, route }) {
   const { actorId } = route.params;

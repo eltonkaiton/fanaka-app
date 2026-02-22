@@ -11,7 +11,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 
-const API_BASE_URL = "http://192.168.100.164:5000";
+const API_BASE_URL = "https://fanaka-server-1.onrender.com";
 
 const EmployeeInboxScreen = ({ navigation }) => {
   const [employeeId, setEmployeeId] = useState(null);
