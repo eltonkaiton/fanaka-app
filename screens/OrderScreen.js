@@ -20,6 +20,7 @@ export default function OrderScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [newOrder, setNewOrder] = useState({
     item: "", itemName: "", supplier: "", supplierName: "",
@@ -37,6 +38,7 @@ export default function OrderScreen() {
       setOrders([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -67,6 +69,12 @@ export default function OrderScreen() {
     fetchItems();
     fetchSuppliers();
   }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchOrders();
+    fetchItems();
+  };
 
   const approveOrder = async (id) => {
     try {
@@ -279,6 +287,13 @@ export default function OrderScreen() {
         </View>
       )}
 
+      {item.receivedAt && (
+        <View style={styles.detailRow}>
+          <Ionicons name="checkmark-circle-outline" size={16} color="#27ae60" />
+          <Text style={[styles.detailText, { color: "#27ae60" }]}>Received: {formatDate(item.receivedAt)}</Text>
+        </View>
+      )}
+
       {/* Payment Status Display */}
       {item.payment?.status && item.payment.status !== "Pending" && (
         <View style={styles.paymentStatusRow}>
@@ -302,9 +317,9 @@ export default function OrderScreen() {
 
       <Text style={styles.dateText}>Ordered: {formatDate(item.createdAt)}</Text>
 
-      {/* Action Buttons */}
+      {/* Action Buttons - UPDATED with proper payment flow */}
       <View style={styles.actionButtons}>
-        {item.status === "pending" && (
+        {item.status === "Pending" && (
           <TouchableOpacity style={styles.approveBtn} onPress={() => approveOrder(item._id)}>
             <Ionicons name="checkmark-circle" size={18} color="#fff" />
             <Text style={styles.btnText}>Approve Order</Text>
@@ -325,7 +340,7 @@ export default function OrderScreen() {
           </TouchableOpacity>
         )}
 
-        {item.status === "Payment Pending" && (
+        {item.status === "Received" && item.payment?.status === "Pending" && (
           <TouchableOpacity style={styles.paymentBtn} onPress={() => submitPaymentRequest(item)}>
             <Ionicons name="cash-outline" size={18} color="#fff" />
             <Text style={styles.btnText}>Submit Payment Request</Text>
@@ -334,22 +349,41 @@ export default function OrderScreen() {
 
         {item.status === "Received" && item.payment?.status === "Submitted" && (
           <View style={styles.paymentSubmitted}>
-            <Text style={styles.paymentSubmittedText}>Payment Request Submitted ✓</Text>
-            <Text style={styles.paymentSubmittedSubtext}>Awaiting finance approval and processing</Text>
+            <Ionicons name="time-outline" size={20} color="#3498db" />
+            <View>
+              <Text style={styles.paymentSubmittedText}>Payment Request Submitted ✓</Text>
+              <Text style={styles.paymentSubmittedSubtext}>Awaiting finance approval</Text>
+            </View>
           </View>
         )}
 
         {item.status === "Received" && item.payment?.status === "Approved" && (
           <View style={styles.paymentApproved}>
-            <Text style={styles.paymentSubmittedText}>Payment Approved ✓</Text>
-            <Text style={styles.paymentSubmittedSubtext}>Finance department processing payment</Text>
+            <Ionicons name="checkmark-circle-outline" size={20} color="#3498db" />
+            <View>
+              <Text style={styles.paymentSubmittedText}>Payment Approved ✓</Text>
+              <Text style={styles.paymentSubmittedSubtext}>Finance processing payment</Text>
+            </View>
           </View>
         )}
 
         {item.status === "Received" && item.payment?.status === "Paid" && (
           <View style={styles.paymentPaid}>
-            <Text style={styles.paymentSubmittedText}>Payment Completed ✓</Text>
-            <Text style={styles.paymentSubmittedSubtext}>Order fully paid and closed</Text>
+            <Ionicons name="checkmark-done-circle" size={20} color="#2ecc71" />
+            <View>
+              <Text style={[styles.paymentSubmittedText, { color: "#2ecc71" }]}>Payment Completed ✓</Text>
+              <Text style={styles.paymentSubmittedSubtext}>Order fully closed</Text>
+            </View>
+          </View>
+        )}
+
+        {item.status === "Paid" && (
+          <View style={styles.paymentPaid}>
+            <Ionicons name="checkmark-done-circle" size={20} color="#2ecc71" />
+            <View>
+              <Text style={[styles.paymentSubmittedText, { color: "#2ecc71" }]}>Payment Completed ✓</Text>
+              <Text style={styles.paymentSubmittedSubtext}>Order fully paid and closed</Text>
+            </View>
           </View>
         )}
       </View>
@@ -361,10 +395,15 @@ export default function OrderScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Inventory Orders</Text>
-          <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
-            <Ionicons name="add-circle-outline" size={20} color="#fff" />
-            <Text style={styles.btnLabel}>New Order</Text>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
+              <Ionicons name="refresh" size={20} color="#6200EE" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
+              <Ionicons name="add-circle-outline" size={20} color="#fff" />
+              <Text style={styles.btnLabel}>New Order</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {loading ? (
@@ -379,6 +418,8 @@ export default function OrderScreen() {
             keyExtractor={(item) => item._id}
             contentContainerStyle={styles.listContainer}
             showsVerticalScrollIndicator={false}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Ionicons name="cube-outline" size={60} color="#ccc" />
@@ -412,7 +453,7 @@ export default function OrderScreen() {
                     }}>
                       <Picker.Item label="Choose an item..." value="" />
                       {items.map((item) => (
-                        <Picker.Item key={item._id} label={`${item.name} (${item.currentStock} ${item.unit || 'pcs'} available)`} value={item._id} />
+                        <Picker.Item key={item._id} label={`${item.name} (${item.currentStock || item.quantity || 0} ${item.unit || 'pcs'} available)`} value={item._id} />
                       ))}
                     </Picker>
                   </View>
@@ -576,33 +617,141 @@ const StatusBadge = ({ status }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f9fa" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 15, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#eee", elevation: 2 },
+  header: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    paddingHorizontal: 20, 
+    paddingVertical: 15, 
+    backgroundColor: "#fff", 
+    borderBottomWidth: 1, 
+    borderBottomColor: "#eee", 
+    elevation: 2 
+  },
   headerTitle: { fontSize: 22, fontWeight: "bold", color: "#333" },
-  addBtn: { flexDirection: "row", alignItems: "center", backgroundColor: "#6200EE", paddingHorizontal: 15, paddingVertical: 10, borderRadius: 8, gap: 8 },
+  headerButtons: { flexDirection: "row", alignItems: "center", gap: 10 },
+  refreshBtn: { 
+    padding: 8, 
+    backgroundColor: "#f0f0f0", 
+    borderRadius: 8,
+    marginRight: 5
+  },
+  addBtn: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    backgroundColor: "#6200EE", 
+    paddingHorizontal: 15, 
+    paddingVertical: 10, 
+    borderRadius: 8, 
+    gap: 8 
+  },
   btnLabel: { color: "#fff", fontWeight: "600", fontSize: 14 },
   loader: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { marginTop: 12, fontSize: 16, color: "#666" },
   listContainer: { padding: 16 },
-  card: { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 12, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 },
-  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 },
+  card: { 
+    backgroundColor: "#fff", 
+    borderRadius: 12, 
+    padding: 16, 
+    marginBottom: 12, 
+    elevation: 2, 
+    shadowColor: "#000", 
+    shadowOffset: { width: 0, height: 1 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 2 
+  },
+  rowBetween: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "flex-start", 
+    marginBottom: 12 
+  },
   itemHeader: { flex: 1 },
   title: { fontSize: 18, fontWeight: "bold", color: "#333", marginBottom: 4 },
   orderId: { fontSize: 12, color: "#666", fontFamily: Platform.OS === "ios" ? "Courier" : "monospace" },
   detailRow: { flexDirection: "row", alignItems: "center", marginBottom: 6, gap: 8 },
-  paymentStatusRow: { flexDirection: "row", alignItems: "center", marginBottom: 6, gap: 8, padding: 8, backgroundColor: "#f8f9fa", borderRadius: 6 },
+  paymentStatusRow: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    marginBottom: 6, 
+    gap: 8, 
+    padding: 8, 
+    backgroundColor: "#f8f9fa", 
+    borderRadius: 6 
+  },
   detailText: { fontSize: 15, color: "#666" },
   totalCost: { fontSize: 16, fontWeight: "bold", color: "#333" },
-  dateText: { fontSize: 12, color: "#999", marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#eee" },
-  actionButtons: { marginTop: 12 },
-  approveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#3498db", paddingVertical: 12, borderRadius: 8, gap: 8 },
-  deliverBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#9b59b6", paddingVertical: 12, borderRadius: 8, gap: 8 },
-  receiveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#2ecc71", paddingVertical: 12, borderRadius: 8, gap: 8 },
-  paymentBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#e67e22", paddingVertical: 12, borderRadius: 8, gap: 8 },
+  dateText: { 
+    fontSize: 12, 
+    color: "#999", 
+    marginTop: 12, 
+    paddingTop: 12, 
+    borderTopWidth: 1, 
+    borderTopColor: "#eee" 
+  },
+  actionButtons: { marginTop: 12, gap: 8 },
+  approveBtn: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    backgroundColor: "#3498db", 
+    paddingVertical: 12, 
+    borderRadius: 8, 
+    gap: 8 
+  },
+  deliverBtn: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    backgroundColor: "#9b59b6", 
+    paddingVertical: 12, 
+    borderRadius: 8, 
+    gap: 8 
+  },
+  receiveBtn: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    backgroundColor: "#2ecc71", 
+    paddingVertical: 12, 
+    borderRadius: 8, 
+    gap: 8 
+  },
+  paymentBtn: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    backgroundColor: "#e67e22", 
+    paddingVertical: 12, 
+    borderRadius: 8, 
+    gap: 8 
+  },
   btnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  paymentSubmitted: { alignItems: "center", padding: 12, backgroundColor: "#f0f8ff", borderRadius: 8 },
-  paymentApproved: { alignItems: "center", padding: 12, backgroundColor: "#e8f6f3", borderRadius: 8 },
-  paymentPaid: { alignItems: "center", padding: 12, backgroundColor: "#e8f6f3", borderRadius: 8 },
-  paymentSubmittedText: { fontSize: 14, fontWeight: "600", color: "#3498db", marginBottom: 4 },
+  paymentSubmitted: { 
+    flexDirection: "row",
+    alignItems: "center", 
+    padding: 12, 
+    backgroundColor: "#f0f8ff", 
+    borderRadius: 8,
+    gap: 12
+  },
+  paymentApproved: { 
+    flexDirection: "row",
+    alignItems: "center", 
+    padding: 12, 
+    backgroundColor: "#e8f6f3", 
+    borderRadius: 8,
+    gap: 12
+  },
+  paymentPaid: { 
+    flexDirection: "row",
+    alignItems: "center", 
+    padding: 12, 
+    backgroundColor: "#e8f6f3", 
+    borderRadius: 8,
+    gap: 12
+  },
+  paymentSubmittedText: { fontSize: 14, fontWeight: "600", color: "#3498db", marginBottom: 2 },
   paymentSubmittedSubtext: { fontSize: 12, color: "#666" },
   badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
   badgeText: { color: "#fff", fontWeight: "bold", fontSize: 11 },
@@ -611,19 +760,53 @@ const styles = StyleSheet.create({
   emptySubtext: { fontSize: 14, color: "#aaa", marginTop: 8 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
   modalContainer: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "90%" },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1, borderBottomColor: "#eee" },
+  modalHeader: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    padding: 20, 
+    borderBottomWidth: 1, 
+    borderBottomColor: "#eee" 
+  },
   modalTitle: { fontSize: 20, fontWeight: "bold", color: "#333" },
   modalContent: { padding: 20, maxHeight: 500 },
   inputGroup: { marginBottom: 20 },
   inputLabel: { fontSize: 15, fontWeight: "600", color: "#333", marginBottom: 8 },
-  pickerContainer: { borderWidth: 1, borderColor: "#ddd", borderRadius: 8, backgroundColor: "#f9f9f9", overflow: "hidden" },
+  pickerContainer: { 
+    borderWidth: 1, 
+    borderColor: "#ddd", 
+    borderRadius: 8, 
+    backgroundColor: "#f9f9f9", 
+    overflow: "hidden" 
+  },
   picker: { height: 50 },
-  inputWithIcon: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#ddd", borderRadius: 8, backgroundColor: "#f9f9f9", overflow: "hidden" },
+  inputWithIcon: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    borderWidth: 1, 
+    borderColor: "#ddd", 
+    borderRadius: 8, 
+    backgroundColor: "#f9f9f9", 
+    overflow: "hidden" 
+  },
   inputIcon: { paddingHorizontal: 16 },
   input: { flex: 1, padding: 12, fontSize: 16, color: "#333" },
-  totalDisplay: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#f3e5f5", padding: 16, borderRadius: 8, gap: 12 },
+  totalDisplay: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    backgroundColor: "#f3e5f5", 
+    padding: 16, 
+    borderRadius: 8, 
+    gap: 12 
+  },
   totalText: { fontSize: 20, fontWeight: "bold", color: "#6200EE" },
-  paymentSummary: { backgroundColor: "#f8f9fa", borderRadius: 12, padding: 16, marginBottom: 20 },
+  paymentSummary: { 
+    backgroundColor: "#f8f9fa", 
+    borderRadius: 12, 
+    padding: 16, 
+    marginBottom: 20 
+  },
   paymentSummaryTitle: { fontSize: 18, fontWeight: "bold", color: "#333", marginBottom: 12 },
   paymentDetailRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   paymentDetailLabel: { fontSize: 14, color: "#666", flex: 1 },
@@ -631,12 +814,41 @@ const styles = StyleSheet.create({
   totalPaymentRow: { borderTopWidth: 1, borderTopColor: "#ddd", paddingTop: 12, marginTop: 8 },
   totalPaymentLabel: { fontSize: 16, color: "#333", fontWeight: "bold", flex: 1 },
   totalPaymentValue: { fontSize: 18, color: "#6200EE", fontWeight: "bold", flex: 2, textAlign: "right" },
-  infoBox: { flexDirection: "row", alignItems: "flex-start", gap: 10, padding: 16, backgroundColor: "#e8f4fd", borderRadius: 8, marginTop: 10 },
+  infoBox: { 
+    flexDirection: "row", 
+    alignItems: "flex-start", 
+    gap: 10, 
+    padding: 16, 
+    backgroundColor: "#e8f4fd", 
+    borderRadius: 8, 
+    marginTop: 10 
+  },
   infoText: { flex: 1, fontSize: 14, color: "#3498db" },
-  modalFooter: { flexDirection: "row", padding: 20, borderTopWidth: 1, borderTopColor: "#eee", gap: 12 },
-  cancelButton: { flex: 1, padding: 16, backgroundColor: "#f5f5f5", borderRadius: 8, alignItems: "center" },
+  modalFooter: { 
+    flexDirection: "row", 
+    padding: 20, 
+    borderTopWidth: 1, 
+    borderTopColor: "#eee", 
+    gap: 12 
+  },
+  cancelButton: { 
+    flex: 1, 
+    padding: 16, 
+    backgroundColor: "#f5f5f5", 
+    borderRadius: 8, 
+    alignItems: "center" 
+  },
   cancelButtonText: { color: "#666", fontSize: 16, fontWeight: "600" },
-  createButton: { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 16, backgroundColor: "#6200EE", borderRadius: 8 },
+  createButton: { 
+    flex: 2, 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    gap: 8, 
+    padding: 16, 
+    backgroundColor: "#6200EE", 
+    borderRadius: 8 
+  },
   createButtonDisabled: { backgroundColor: "#b39ddb", opacity: 0.7 },
   createButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

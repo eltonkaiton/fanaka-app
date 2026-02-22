@@ -20,7 +20,8 @@ import { io } from "socket.io-client";
 const API_BASE_URL = "http://192.168.100.164:5000";
 const SOCKET_URL = "http://192.168.100.164:5000";
 
-const ALLOWED_DEPARTMENTS = ["administration", "admin", "finance"];
+/* ✅ Admin Removed */
+const ALLOWED_DEPARTMENTS = ["administration", "finance"];
 const ALLOWED_POSITIONS = ["attendant"];
 
 const AudienceChatScreen = () => {
@@ -35,7 +36,7 @@ const AudienceChatScreen = () => {
   const socketRef = useRef(null);
   const flatListRef = useRef(null);
 
-  // 🔹 INIT
+  // INIT ONCE
   useEffect(() => {
     const init = async () => {
       const storedId = await AsyncStorage.getItem("customerId");
@@ -43,15 +44,14 @@ const AudienceChatScreen = () => {
         Alert.alert("Login required");
         return;
       }
+
       setCustomerId(storedId);
       fetchEmployees();
 
-      // Connect socket
       socketRef.current = io(SOCKET_URL, { transports: ["websocket"] });
       socketRef.current.emit("join", storedId);
 
       socketRef.current.on("newMessage", (msg) => {
-        // Only fetch if message involves selected department
         if (
           selectedEmployee &&
           msg.department === selectedEmployee.department
@@ -65,33 +65,36 @@ const AudienceChatScreen = () => {
     return () => socketRef.current?.disconnect();
   }, [selectedEmployee]);
 
-  // 🔹 Fetch Employees
+  // Fetch Employees
   const fetchEmployees = async () => {
     try {
       const res = await axios.get(`${API_BASE_URL}/api/employees`);
+
       const filtered = (res.data || []).filter((emp) => {
         const dept = (emp.department || "").toLowerCase();
         const pos = (emp.position || "").toLowerCase();
+
         return (
           ALLOWED_DEPARTMENTS.some((k) => dept.includes(k)) ||
           ALLOWED_POSITIONS.some((k) => pos.includes(k))
         );
       });
+
       setEmployees(filtered);
     } catch (err) {
-      console.log("Employee fetch error:", err.message);
+      console.log("Employee fetch error:", err.response?.data || err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔹 Fetch messages by department
+  // FETCH BOTH SENT & RECEIVED
   const fetchMessages = async (emp) => {
     if (!customerId || !emp?.department) return;
 
     try {
       const res = await axios.get(
-        `${API_BASE_URL}/api/chat/messages/department/${emp.department}?customerId=${customerId}`
+        `${API_BASE_URL}/api/chat/messages/department/${emp.department}/${customerId}`
       );
 
       if (res.data.success) {
@@ -101,16 +104,17 @@ const AudienceChatScreen = () => {
         }, 100);
       }
     } catch (err) {
-      console.log("Message fetch error:", err.message);
+      console.log("Fetch error:", err.response?.data || err.message);
     }
   };
 
-  // 🔹 Send message
+  // SEND MESSAGE
   const sendMessage = async () => {
     if (!inputText.trim() || !selectedEmployee) return;
 
     const tempMessage = {
       _id: Date.now().toString(),
+      senderId: customerId,
       senderType: "User",
       message: inputText.trim(),
     };
@@ -121,20 +125,16 @@ const AudienceChatScreen = () => {
     try {
       await axios.post(`${API_BASE_URL}/api/chat/send`, {
         senderId: customerId,
+        receiverId: selectedEmployee._id,
         senderType: "User",
-        department: selectedEmployee.department, // Send to department
+        department: selectedEmployee.department,
         message: tempMessage.message,
       });
-
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
     } catch (err) {
-      console.log("Send error:", err.message);
+      console.log("Send error:", err.response?.data || err.message);
     }
   };
 
-  // 🔹 Render employee card
   const renderEmployeeItem = ({ item }) => (
     <TouchableOpacity
       style={styles.employeeCard}
@@ -145,14 +145,35 @@ const AudienceChatScreen = () => {
       }}
     >
       <View style={styles.employeeAvatar}>
-        <Text style={styles.employeeAvatarText}>{item.fullName?.charAt(0) || "E"}</Text>
+        <Text style={styles.employeeAvatarText}>
+          {item.fullName?.charAt(0) || "E"}
+        </Text>
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.employeeName}>{item.fullName}</Text>
-        <Text style={styles.lastMessage}>Tap to chat ({item.department})</Text>
+        <Text style={styles.lastMessage}>
+          Tap to chat ({item.department})
+        </Text>
       </View>
     </TouchableOpacity>
   );
+
+  const renderMessage = ({ item }) => {
+    const isMyMessage =
+      item.senderType === "User" ||
+      item.senderId === customerId;
+
+    return (
+      <View
+        style={[
+          styles.messageBubble,
+          isMyMessage ? styles.myMessage : styles.otherMessage,
+        ]}
+      >
+        <Text style={{ color: "#fff" }}>{item.message}</Text>
+      </View>
+    );
+  };
 
   if (loading) {
     return (
@@ -173,7 +194,6 @@ const AudienceChatScreen = () => {
         />
       ) : (
         <>
-          {/* Header */}
           <View style={styles.chatHeader}>
             <TouchableOpacity
               onPress={() => {
@@ -184,28 +204,19 @@ const AudienceChatScreen = () => {
             >
               <Ionicons name="arrow-back" size={24} color="#6200EE" />
             </TouchableOpacity>
-            <Text style={styles.chatHeaderTitle}>{selectedEmployee?.fullName}</Text>
+            <Text style={styles.chatHeaderTitle}>
+              {selectedEmployee?.fullName}
+            </Text>
           </View>
 
-          {/* Messages */}
           <FlatList
             ref={flatListRef}
             data={messages}
-            keyExtractor={(item) => item._id}
-            renderItem={({ item }) => (
-              <View
-                style={[
-                  styles.messageBubble,
-                  item.senderType === "User" ? styles.myMessage : styles.otherMessage,
-                ]}
-              >
-                <Text style={{ color: "#fff" }}>{item.message}</Text>
-              </View>
-            )}
+            keyExtractor={(item) => item._id.toString()}
+            renderItem={renderMessage}
             contentContainerStyle={{ padding: 10 }}
           />
 
-          {/* Input */}
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={styles.inputContainer}
@@ -240,15 +251,53 @@ const styles = StyleSheet.create({
     borderBottomColor: "#eee",
   },
   chatHeaderTitle: { fontSize: 16, fontWeight: "bold", marginLeft: 10 },
-  employeeCard: { flexDirection: "row", alignItems: "center", padding: 14, backgroundColor: "#fff", borderRadius: 12, marginBottom: 10 },
-  employeeAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#6200EE", justifyContent: "center", alignItems: "center", marginRight: 12 },
+  employeeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  employeeAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#6200EE",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
   employeeAvatarText: { color: "#fff", fontWeight: "bold" },
   employeeName: { fontWeight: "bold" },
   lastMessage: { color: "#777", fontSize: 12 },
-  messageBubble: { padding: 10, borderRadius: 10, marginVertical: 5, maxWidth: "75%" },
+  messageBubble: {
+    padding: 10,
+    borderRadius: 10,
+    marginVertical: 5,
+    maxWidth: "75%",
+  },
   myMessage: { backgroundColor: "#6200EE", alignSelf: "flex-end" },
   otherMessage: { backgroundColor: "#9e9e9e", alignSelf: "flex-start" },
-  inputContainer: { flexDirection: "row", padding: 10, backgroundColor: "#fff" },
-  input: { flex: 1, borderWidth: 1, borderColor: "#ddd", borderRadius: 20, paddingHorizontal: 15 },
-  sendButton: { marginLeft: 10, backgroundColor: "#6200EE", width: 44, height: 44, borderRadius: 22, justifyContent: "center", alignItems: "center" },
+  inputContainer: {
+    flexDirection: "row",
+    padding: 10,
+    backgroundColor: "#fff",
+  },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+  },
+  sendButton: {
+    marginLeft: 10,
+    backgroundColor: "#6200EE",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+  },
 });

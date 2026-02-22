@@ -67,6 +67,7 @@ import SupplierHomeScreen from "../screens/SupplierHomeScreen";
    EMPLOYEE INBOX
 ======================= */
 import EmployeeInboxScreen from "../screens/EmployeeInboxScreen";
+import EmployeeChatScreen from "../screens/EmployeeChatScreen";
 
 /* =======================
    NAVIGATORS
@@ -263,11 +264,17 @@ const AppNavigator = () => {
         <Stack.Screen name="Tickets" component={TicketsScreen} options={{ title: "All Tickets" }} />
         <Stack.Screen name="Order" component={OrderScreen} options={{ title: "Inventory Orders" }} />
 
-        {/* EMPLOYEE INBOX */}
+                {/* EMPLOYEE INBOX */}
         <Stack.Screen
           name="EmployeeInboxScreen"
           component={EmployeeInboxScreen}
           options={{ title: "Inbox" }}
+        />
+
+        <Stack.Screen
+          name="EmployeeChat"
+          component={EmployeeChatScreen}
+          options={{ headerShown: false }}
         />
 
         {/* SUPPLIER */}

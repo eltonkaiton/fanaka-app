@@ -499,6 +499,7 @@ export default function InventoryHomeScreen({ navigation }) {
     );
   };
 
+  // UPDATED renderInventoryItems with currentStock and lowStockThreshold
   const renderInventoryItems = () => (
     <View style={styles.content}>
       <View style={styles.header}>
@@ -513,18 +514,21 @@ export default function InventoryHomeScreen({ navigation }) {
         keyExtractor={item => item._id}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          <View style={[styles.itemCard, item.quantity <= (item.minThreshold || 0) && styles.lowStockCard]}>
+          <View style={[styles.itemCard, item.currentStock <= (item.lowStockThreshold || 0) && styles.lowStockCard]}>
+            {/* Item Name and Current Stock */}
             <View style={styles.itemHeader}>
               <Text style={styles.itemName}>{item.name}</Text>
               <View style={[
                 styles.quantityBadge, 
-                item.quantity <= (item.minThreshold || 0) && styles.lowStockBadge
+                item.currentStock <= (item.lowStockThreshold || 0) && styles.lowStockBadge
               ]}>
                 <Text style={styles.quantityText}>
-                  {item.quantity} {item.unit || 'pcs'}
+                  Current Stock: {item.currentStock} {item.unit || 'pcs'}
                 </Text>
               </View>
             </View>
+
+            {/* Item Details */}
             <View style={styles.itemDetails}>
               <View style={styles.detailRow}>
                 <Ionicons name="pricetag-outline" size={16} color="#666" />
@@ -533,11 +537,13 @@ export default function InventoryHomeScreen({ navigation }) {
               <View style={styles.detailRow}>
                 <Ionicons name="alert-circle-outline" size={16} color="#666" />
                 <Text style={styles.detailText}>
-                  Min Threshold: {item.minThreshold || 'Not set'}
+                  Minimum Threshold: {item.lowStockThreshold || 'Not set'}
                 </Text>
               </View>
             </View>
-            {item.quantity <= (item.minThreshold || 0) && (
+
+            {/* Order More Button if Low Stock */}
+            {item.currentStock <= (item.lowStockThreshold || 0) && (
               <TouchableOpacity 
                 style={styles.orderButton} 
                 onPress={() => { 
